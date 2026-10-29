@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ファイル拡張子・フォーマット変換ツール</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+
+  <div class="max-w-md w-full bg-slate-800 rounded-xl p-6 shadow-2xl border border-slate-700">
+    <h1 class="text-xl font-bold text-center mb-6">ファイル拡張子 変更・変換</h1>
+
+    <!-- ドロップエリア -->
+    <div id="dropZone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-lg p-8 text-center cursor-pointer transition">
+      <p class="text-slate-400">ファイルをドラッグ＆ドロップ<br>またはクリックして選択</p>
+      <input type="file" id="fileInput" class="hidden">
+    </div>
+
+    <!-- 設定エリア -->
+    <div id="controls" class="mt-6 hidden">
+      <p id="fileName" class="text-sm text-slate-300 truncate mb-4 font-mono"></p>
+
+      <label class="block text-xs text-slate-400 mb-1">変換後の拡張子 / フォーマット</label>
+      <select id="targetExt" class="w-full bg-slate-700 border border-slate-600 rounded p-2 text-white mb-4">
+        <option value="png">.png (PNG画像)</option>
+        <option value="jpg">.jpg (JPEG画像)</option>
+        <option value="webp">.webp (WebP画像)</option>
+        <option value="rename-only">※中身は変えず拡張子名のみ変更...</option>
+      </select>
+
+      <div id="customExtInput" class="hidden mb-4">
+        <input type="text" id="customExt" placeholder="例: log, txt, bin" class="w-full bg-slate-700 border border-slate-600 rounded p-2 text-white text-sm">
+      </div>
+
+      <button id="convertBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded transition">
+        変換してダウンロード
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const controls = document.getElementById('controls');
+    const fileName = document.getElementById('fileName');
+    const targetExt = document.getElementById('targetExt');
+    const customExtInput = document.getElementById('customExtInput');
+    const convertBtn = document.getElementById('convertBtn');
+
+    let selectedFile = null;
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-500');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      fileName.textContent = `選択中: ${file.name}`;
+      controls.classList.remove('hidden');
+    }
+
+    targetExt.addEventListener('change', () => {
+      if (targetExt.value === 'rename-only') {
+        customExtInput.classList.remove('hidden');
+      } else {
+        customExtInput.classList.add('hidden');
+      }
+    });
+
+    convertBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      const baseName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || selectedFile.name;
+      let newExt = targetExt.value;
+
+      if (newExt === 'rename-only') {
+        newExt = document.getElementById('customExt').value.trim() || 'converted';
+        // 単純な拡張子書き換え（Blobとしてダウンロード）
+        downloadBlob(selectedFile, `${baseName}.${newExt}`);
+      } else {
+        // 画像フォーマット変換処理 (Canvas経由)
+        const img = new Image();
+        img.src = URL.createObjectURL(selectedFile);
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+
+          const mimeType = newExt === 'jpg' ? 'image/jpeg' : `image/${newExt}`;
+          canvas.toBlob((blob) => {
+            downloadBlob(blob, `${baseName}.${newExt}`);
+          }, mimeType, 0.9);
+        };
+      }
+    });
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
